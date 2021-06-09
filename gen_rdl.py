@@ -13,14 +13,16 @@ def parse_args():
     parser.add_argument('ipxact_file', help='IP-XACT file to parse')
     parser.add_argument('-o', dest='output_file', help='Write output to file')
     parser.add_argument('-i', dest='inst_name', help='Instance name for the addressmap')
-    return parser.parse_args();
+    return parser.parse_args()
 
 def open_output(output):
     return open(output, 'w') if output else sys.stdout
 
 def write_prologue(of):
-    of.write('// RDL file generated from IP-Xact xml file')
-    of.write('// This file is autpmatically generated. Do not modify')
+    of.write('// ----------------------------------------------------------------\n')
+    of.write('// RDL(p) file generated from IP-Xact xml file using ipxact/gen_rdl.py\n')
+    of.write('// Do not edit\n')
+    of.write('// ----------------------------------------------------------------\n')
     of.write('\n')
     of.write('\n')
 
@@ -84,8 +86,8 @@ def write_reg_fields(reg, indent):
         of.write(f"{indent2} desc = \"{desc}\";\n")
         if (f.resets):
             of.write(f"{indent2} reset = {hex(get_reset(f,'field'))};\n")
-        of.write(f"{indent2} {get_access_hw(f.access)};\n")
         of.write(f"{indent2} {get_access_sw(f.access)};\n")
+        of.write(f"{indent2} {get_access_hw(f.access)};\n")
         of.write(f"{indent} }} {f.name}[{f.bitWidth}];\n")
 
 def write_memory_maps(of, memory_maps, offset=0, name=None):
@@ -117,8 +119,8 @@ def write_memory_maps(of, memory_maps, offset=0, name=None):
                 if (reg.reset):
                     of.write(f"{indent3} default reset = {hex(get_reset(reg,reg))};\n")
                 if (reg.access):
-                    of.write(f"{indent3} {get_access_hw(reg.access,reg)};\n")
                     of.write(f"{indent3} {get_access_sw(reg.access,reg)};\n")
+                    of.write(f"{indent3} {get_access_hw(reg.access,reg)};\n")
                 if reg.field:
                     write_reg_fields(reg, indent3)
                 of.write(f"{indent2} }} {reg.name} {add_pre}{hex(reg.addressOffset)};\n\n")
