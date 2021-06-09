@@ -76,11 +76,16 @@ def get_reset (ds,type):
 
 def write_reg_fields(reg, indent):
     indent2 = indent + "   "
+    lsb = 0
+    msb = 0
     for f in sorted(reg.field, key=lambda x: x.bitOffset):
         if (f.description) :
             desc = f.description
+            desc = desc.replace ("\"","'")
         else :
             desc = f.name
+        lsb = f.bitOffset
+        msb = f.bitOffset + f.bitWidth - 1 
         of.write(f"{indent} field {{\n")
         of.write(f"{indent2} name = \"{f.name}\";\n")
         of.write(f"{indent2} desc = \"{desc}\";\n")
@@ -88,7 +93,7 @@ def write_reg_fields(reg, indent):
             of.write(f"{indent2} reset = {hex(get_reset(f,'field'))};\n")
         of.write(f"{indent2} {get_access_sw(f.access)};\n")
         of.write(f"{indent2} {get_access_hw(f.access)};\n")
-        of.write(f"{indent} }} {f.name}[{f.bitWidth}];\n")
+        of.write(f"{indent} }} {f.name}[{msb}:{lsb}];\n")
 
 def write_memory_maps(of, memory_maps, offset=0, name=None):
     indent = "    "
@@ -119,8 +124,8 @@ def write_memory_maps(of, memory_maps, offset=0, name=None):
                 if (reg.reset):
                     of.write(f"{indent3} default reset = {hex(get_reset(reg,reg))};\n")
                 if (reg.access):
-                    of.write(f"{indent3} {get_access_sw(reg.access,reg)};\n")
-                    of.write(f"{indent3} {get_access_hw(reg.access,reg)};\n")
+                    of.write(f"{indent3} default {get_access_sw(reg.access,reg)};\n")
+                    of.write(f"{indent3} default {get_access_hw(reg.access,reg)};\n")
                 if reg.field:
                     write_reg_fields(reg, indent3)
                 of.write(f"{indent2} }} {reg.name} {add_pre}{hex(reg.addressOffset)};\n\n")
