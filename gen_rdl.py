@@ -87,13 +87,13 @@ def write_reg_fields(reg, indent):
         lsb = f.bitOffset
         msb = f.bitOffset + f.bitWidth - 1 
         of.write(f"{indent} field {{\n")
-        of.write(f"{indent2} name = \"{f.name}\";\n")
+        of.write(f"{indent2} name = \"{f.name.lower()}\";\n")
         of.write(f"{indent2} desc = \"{desc}\";\n")
         if (f.resets):
             of.write(f"{indent2} reset = {hex(get_reset(f,'field'))};\n")
         of.write(f"{indent2} {get_access_sw(f.access)};\n")
         of.write(f"{indent2} {get_access_hw(f.access)};\n")
-        of.write(f"{indent} }} {f.name}[{msb}:{lsb}];\n")
+        of.write(f"{indent} }} {f.name.lower()}[{msb}:{lsb}];\n")
 
 def write_memory_maps(of, memory_maps, offset=0, name=None):
     indent = "    "
@@ -107,14 +107,14 @@ def write_memory_maps(of, memory_maps, offset=0, name=None):
         add_pre = "@"
     for m in memory_maps.memoryMap:
         if name:
-            mname=name.upper()
+            mname=name.lower()
         else:
-            mname = m.name.upper()
+            mname = m.name.lower()
         of.write(f"addrmap {mname} {{\n")
         multiblock = len(m.addressBlock) > 1
         for block in m.addressBlock:
             if multiblock:
-                bname = mname + '_' + block.name.upper()
+                bname = mname + '_' + block.name.lower()
             else:
                 bname = mname
             of.write(f"{indent} regfile {{\n")
@@ -128,8 +128,8 @@ def write_memory_maps(of, memory_maps, offset=0, name=None):
                     of.write(f"{indent3} default {get_access_hw(reg.access,reg)};\n")
                 if reg.field:
                     write_reg_fields(reg, indent3)
-                of.write(f"{indent2} }} {reg.name} {add_pre}{hex(reg.addressOffset)};\n\n")
-            of.write(f"{indent} }} {block.name} {add_pre}{hex(block.baseAddress)};\n\n")
+                of.write(f"{indent2} }} {reg.name.lower()} {add_pre}{hex(reg.addressOffset)};\n\n")
+            of.write(f"{indent} }} {block.name.lower()} {add_pre}{hex(block.baseAddress)};\n\n")
         of.write(f"}} {args.inst_name};")
 
 
