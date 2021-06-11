@@ -74,7 +74,7 @@ def get_reset (ds,type):
     return reset
 
 
-def write_reg_fields(reg, indent):
+def write_reg_fields(reg, indent, is_rdlp):
     indent2 = indent + "   "
     lsb = 0
     msb = 0
@@ -93,7 +93,7 @@ def write_reg_fields(reg, indent):
             of.write(f"{indent2} reset = {hex(get_reset(f,'field'))};\n")
         of.write(f"{indent2} {get_access_sw(f.access)};\n")
         of.write(f"{indent2} {get_access_hw(f.access)};\n")
-        of.write(f"{indent} }} {get_item_name(f.name)}[{msb}:{lsb}];\n")
+        of.write(f"{indent} }} {get_item_name(f.name, is_rdlp)}[{msb}:{lsb}];\n")
 
 def is_rdl_keyword (name):
     ## this is not an exhaustive list of rdl keywords but only
@@ -104,9 +104,13 @@ def is_rdl_keyword (name):
     else:
         return 0
 
-def get_item_name (name):
+def get_item_name (name,is_rdlp):
+    if (is_rdlp):
+        pre = "\\\\"
+    else:
+        pre = "\\"
     if (is_rdl_keyword(name.lower())):
-        new_name = "\\\\" + (name.lower())
+        new_name = pre+name.lower()
     else:
         new_name = name.lower()
     return new_name
@@ -143,9 +147,9 @@ def write_memory_maps(of, memory_maps, offset=0, name=None):
                     of.write(f"{indent3} default {get_access_sw(reg.access,reg)};\n")
                     of.write(f"{indent3} default {get_access_hw(reg.access,reg)};\n")
                 if reg.field:
-                    write_reg_fields(reg, indent3)
-                of.write(f"{indent2} }} {get_item_name(reg.name)} {add_pre}{hex(reg.addressOffset)};\n\n")
-            of.write(f"{indent} }} {get_item_name(block.name)} {add_pre}{hex(block.baseAddress)};\n\n")
+                    write_reg_fields(reg, indent3, add_pre)
+                of.write(f"{indent2} }} {get_item_name(reg.name,add_pre)} {add_pre}{hex(reg.addressOffset)};\n\n")
+            of.write(f"{indent} }} {get_item_name(block.name, add_pre)} {add_pre}{hex(block.baseAddress)};\n\n")
         of.write(f"}} {args.inst_name};\n")
 
 
