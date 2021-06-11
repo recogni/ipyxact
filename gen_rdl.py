@@ -105,12 +105,8 @@ def is_rdl_keyword (name):
         return 0
 
 def get_item_name (name,is_rdlp):
-    if (is_rdlp):
-        pre = "\\\\"
-    else:
-        pre = "\\"
     if (is_rdl_keyword(name.lower())):
-        new_name = pre+name.lower()
+        new_name = name.upper()
     else:
         new_name = name.lower()
     return new_name
