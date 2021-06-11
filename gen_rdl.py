@@ -106,7 +106,7 @@ def is_rdl_keyword (name):
 
 def get_item_name (name):
     if (is_rdl_keyword(name.lower())):
-        new_name = "\\"+name.lower()
+        new_name = "\\\\" + (name.lower())
     else:
         new_name = name.lower()
     return new_name
