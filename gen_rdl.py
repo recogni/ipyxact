@@ -1,5 +1,5 @@
 #ipyxact example. Parses an IP-XACT XML file called generic_example.xml
-#and prints out a C header of the register maps found
+#and prints out rdl or rdlp files for the register maps found
 import argparse
 import sys
 import time
@@ -93,7 +93,23 @@ def write_reg_fields(reg, indent):
             of.write(f"{indent2} reset = {hex(get_reset(f,'field'))};\n")
         of.write(f"{indent2} {get_access_sw(f.access)};\n")
         of.write(f"{indent2} {get_access_hw(f.access)};\n")
-        of.write(f"{indent} }} {f.name.lower()}[{msb}:{lsb}];\n")
+        of.write(f"{indent} }} {get_item_name(f.name)}[{msb}:{lsb}];\n")
+
+def is_rdl_keyword (name):
+    ## this is not an exhaustive list of rdl keywords but only
+    ## a small subset that are currently causing issues
+    kw_list = ["reset","enable","type"]
+    if name in kw_list :
+        return 1
+    else:
+        return 0
+
+def get_item_name (name):
+    if (is_rdl_keyword(name.lower())):
+        new_name = "\\"+name.lower()
+    else:
+        new_name = name.lower()
+    return new_name
 
 def write_memory_maps(of, memory_maps, offset=0, name=None):
     indent = "    "
@@ -128,9 +144,9 @@ def write_memory_maps(of, memory_maps, offset=0, name=None):
                     of.write(f"{indent3} default {get_access_hw(reg.access,reg)};\n")
                 if reg.field:
                     write_reg_fields(reg, indent3)
-                of.write(f"{indent2} }} {reg.name.lower()} {add_pre}{hex(reg.addressOffset)};\n\n")
-            of.write(f"{indent} }} {block.name.lower()} {add_pre}{hex(block.baseAddress)};\n\n")
-        of.write(f"}} {args.inst_name};")
+                of.write(f"{indent2} }} {get_item_name(reg.name)} {add_pre}{hex(reg.addressOffset)};\n\n")
+            of.write(f"{indent} }} {get_item_name(block.name)} {add_pre}{hex(block.baseAddress)};\n\n")
+        of.write(f"}} {args.inst_name};\n")
 
 
 if __name__ == '__main__':
