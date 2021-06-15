@@ -13,6 +13,9 @@ def parse_args():
     parser.add_argument('ipxact_file', help='IP-XACT file to parse')
     parser.add_argument('-o', dest='output_file', help='Write output to file')
     parser.add_argument('-i', dest='inst_name', help='Instance name for the addressmap')
+    parser.add_argument('-r', dest='ignore_rsvd_fld', default=0,  
+                        help='0 = (default) parse all fields; 1 \
+                               = Ignore fields that have "reserved" in their name')
     return parser.parse_args()
 
 def open_output(output):
@@ -74,10 +77,11 @@ def get_reset (ds,type):
     return reset
 
 
-def write_reg_fields(reg, indent, is_rdlp):
+def write_reg_fields(reg, indent, is_rdlp, ignore_rsvd_kw):
     indent2 = indent + "   "
     lsb = 0
     msb = 0
+    num_fld_op = 0
     for f in sorted(reg.field, key=lambda x: x.bitOffset):
         if (f.description) :
             desc = f.description
@@ -85,15 +89,20 @@ def write_reg_fields(reg, indent, is_rdlp):
         else :
             desc = f.name
         lsb = f.bitOffset
-        msb = f.bitOffset + f.bitWidth - 1 
-        of.write(f"{indent} field {{\n")
-        of.write(f"{indent2} name = \"{f.name.lower()}\";\n")
-        of.write(f"{indent2} desc = \"{desc}\";\n")
-        if (f.resets):
-            of.write(f"{indent2} reset = {hex(get_reset(f,'field'))};\n")
-        of.write(f"{indent2} {get_access_sw(f.access)};\n")
-        of.write(f"{indent2} {get_access_hw(f.access)};\n")
-        of.write(f"{indent} }} {get_item_name(f.name, is_rdlp)}[{msb}:{lsb}];\n")
+        msb = f.bitOffset + f.bitWidth - 1
+        if ("reserved" in f.name.lower() and ignore_rsvd_kw):
+            of.write(f"{indent} // Field {f.name} has \"reserved\" as part of its name and hence ignored\n")
+        else:
+            of.write(f"{indent} field {{\n")
+            of.write(f"{indent2} name = \"{f.name.lower()}\";\n")
+            of.write(f"{indent2} desc = \"{desc}\";\n")
+            if (f.resets):
+                of.write(f"{indent2} reset = {hex(get_reset(f,'field'))};\n")
+            of.write(f"{indent2} {get_access_sw(f.access)};\n")
+            #of.write(f"{indent2} {get_access_hw(f.access)};\n")
+            of.write(f"{indent} }} {get_item_name(f.name, is_rdlp)}[{msb}:{lsb}];\n")
+            num_fld_op = num_fld_op+1
+    return num_fld_op
 
 def is_rdl_keyword (name):
     ## this is not an exhaustive list of rdl keywords but only
@@ -141,9 +150,22 @@ def write_memory_maps(of, memory_maps, offset=0, name=None):
                     of.write(f"{indent3} default reset = {hex(get_reset(reg,reg))};\n")
                 if (reg.access):
                     of.write(f"{indent3} default {get_access_sw(reg.access,reg)};\n")
-                    of.write(f"{indent3} default {get_access_hw(reg.access,reg)};\n")
+                    #of.write(f"{indent3} default {get_access_hw(reg.access,reg)};\n")
                 if reg.field:
-                    write_reg_fields(reg, indent3, add_pre)
+                    num_fld_op = write_reg_fields(reg, indent3, add_pre, args.ignore_rsvd_fld)
+                    ## if all the fields in a reg are reserved then there will be no fields output in rdlp
+                    ## this can lead to some bad things later on in the tool flow like xml2c scripts
+                    ## Hence if all the fields in a reg are reserved fields, then add one reserved field 
+                    ## equal to the size of the register to keep downstream tools happy
+
+                    if (num_fld_op == 0):
+                        of.write(f"{indent3} field {{\n")
+                        of.write(f"{indent4} name = \"reserved\";\n")
+                        of.write(f"{indent4} desc = \"reserved field added because no fields were defined for this reg\";\n")
+                        of.write(f"{indent4} reset = 0;\n")
+                        of.write(f"{indent4} sw = r;\n")
+                        #of.write(f"{indent4} hw = w;\n")
+                        of.write(f"{indent3} }} rsvd[{reg.size-1}:0];\n")
                 of.write(f"{indent2} }} {get_item_name(reg.name,add_pre)} {add_pre}{hex(reg.addressOffset)};\n\n")
             of.write(f"{indent} }} {get_item_name(block.name, add_pre)} {add_pre}{hex(block.baseAddress)};\n\n")
         of.write(f"}} {args.inst_name};\n")
