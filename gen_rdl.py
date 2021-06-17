@@ -12,7 +12,8 @@ def parse_args():
             description='Generate a rdl/rdlp from an IP-XACT file')
     parser.add_argument('ipxact_file', help='IP-XACT file to parse')
     parser.add_argument('-o', dest='output_file', help='Write output to file')
-    parser.add_argument('-i', dest='inst_name', help='Instance name for the addressmap')
+    parser.add_argument('-i', dest='inst_name', default="", help='Instance name for the addressmap')
+    parser.add_argument('-p', dest='pfx_addr_map', default="", help='Prefix for names addressmap')
     parser.add_argument('-r', dest='ignore_rsvd_fld', default=0,  
                         help='0 = (default) parse all fields; 1 \
                                = Ignore fields that have "reserved" in their name')
@@ -135,6 +136,7 @@ def write_memory_maps(of, memory_maps, offset=0, name=None):
             mname=name.lower()
         else:
             mname = m.name.lower()
+        mname = args.pfx_addr_map + "_" + mname
         of.write(f"addrmap {mname} {{\n")
         multiblock = len(m.addressBlock) > 1
         for block in m.addressBlock:
