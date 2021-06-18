@@ -86,6 +86,8 @@ def write_reg_fields(reg, indent, is_rdlp, ignore_rsvd_kw):
     for f in sorted(reg.field, key=lambda x: x.bitOffset):
         if (f.description) :
             desc = f.description
+            desc = desc.encode("utf-8")
+            desc = desc.decode("ascii","ignore")
             desc = desc.replace ("\"","'")
         else :
             desc = f.name
@@ -172,6 +174,8 @@ def write_memory_maps(of, memory_maps, offset=0, name=None):
             of.write(f"{indent} }} {get_item_name(block.name, add_pre)} {add_pre}{hex(block.baseAddress)};\n\n")
         of.write(f"}} {args.inst_name};\n")
 
+def remove_non_ascii(s):
+    return "".join(c for c in s if ord(c)<128)
 
 if __name__ == '__main__':
     args = parse_args()
