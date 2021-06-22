@@ -31,7 +31,7 @@ def write_prologue(of):
     of.write('\n')
 
 
-def get_access_sw (access,type=""):
+def get_access_sw (access,modwriteval,type=""):
     if (type == "reg"):
         pre = "default "
     else:
@@ -41,7 +41,10 @@ def get_access_sw (access,type=""):
     if access == "read-only":
         rdl_access = pre + "sw = r"
     elif access == "read-write":
-        rdl_access = pre + "sw = rw"
+        if (modwriteval == "oneToClear"):
+            rdl_access = pre + "sw = rw; woclr"
+        else:
+            rdl_access = pre + "sw = rw"
     elif access == "write-only":
         rdl_access = pre + "sw = w"
     else:
@@ -67,14 +70,88 @@ def get_access_hw (access,type=""):
         sys.exit(0)
     return rdl_access
 
-
-def get_reset (ds,type):
-    if (type == "field"):
-        ## this is a reset at field level
-            reset = ds.resets.reset.value
+## some ipXact has reset fields under attribute "resets"
+## while in some ipxact they are directly defined as "reset"
+## Also some resets have mask and some done
+## taking care of all these possibilities in the below code
+def get_reset (f,reg,msb,lsb):
+    width = msb - lsb + 1
+    width_mask = pow(2,width) - 1
+    is_mask_defined = 0
+    is_reg_reset_defined = 0
+    reg_has_resets = 0
+    reg_has_reset = 0
+    reg_has_reset_mask = 0
+    fld_has_resets = 0
+    fld_has_reset = 0
+    try:
+        reg.resets # does a exist in the current namespace
+    except AttributeError:
+        reg_has_resets = 0
     else:
-        ## this is a reset at register level
-        reset = ds.reset.value
+        reg_has_resets = (reg.resets != None)
+        try:
+            reg.resets.reset.mask # does a exist in the current namespace
+        except AttributeError:
+            reg_has_reset_mask = 0
+        else:
+            reg_has_reset_mask = (reg.resets.reset.mask != None)
+    
+    
+    try:
+        reg.reset # does a exist in the current namespace
+    except AttributeError:
+        reg_has_reset = 0
+    else:
+        reg_has_reset = (reg.reset != None)
+        try:
+            reg.reset.mask # does a exist in the current namespace
+        except AttributeError:
+            reg_has_reset_mask = 0
+        else:
+            reg_has_reset_mask = (reg.reset.mask != None)
+    
+    try:
+        f.reset # does a exist in the current namespace
+    except AttributeError:
+        fld_has_reset = 0
+    else:
+        fld_has_reset = (f.reset != None)
+    
+    try:
+        f.resets # does a exist in the current namespace
+    except AttributeError:
+        fld_has_resets = 0
+    else:
+        fld_has_resets = (f.resets != None)
+    
+    
+    if (reg_has_resets):
+        reg_reset = reg.resets.reset.value
+        is_reg_reset_defined = 1
+        if (reg_has_reset_mask):
+            reset_mask = reg.resets.reset.mask
+            is_mask_defined = 1
+    elif (reg_has_reset):
+        reg_reset = reg.reset.value
+        is_reg_reset_defined = 1
+        if (reg_has_reset_mask):
+            reset_mask = reg.reset.mask
+            is_mask_defined = 1
+    ## if a field has an explicit reset attribute defined, use that
+    reset = "na"
+    if (fld_has_reset): 
+        reset = f.reset.value
+    elif (fld_has_resets):
+        reset = f.resets.reset.value
+    elif (is_reg_reset_defined):
+        reset = (reg_reset >> lsb) & width_mask
+        if (is_mask_defined):
+            fmask = (reset_mask >> lsb) & width_mask
+            if (fmask == 0):
+                reset = "na"
+            else:
+                reset = reset & fmask
     return reset
 
 
@@ -99,9 +176,10 @@ def write_reg_fields(reg, indent, is_rdlp, ignore_rsvd_kw):
             of.write(f"{indent} field {{\n")
             of.write(f"{indent2} name = \"{f.name.lower()}\";\n")
             of.write(f"{indent2} desc = \"{desc}\";\n")
-            if (f.resets):
-                of.write(f"{indent2} reset = {hex(get_reset(f,'field'))};\n")
-            of.write(f"{indent2} {get_access_sw(f.access)};\n")
+            reset = get_reset(f,reg,msb,lsb)
+            if (reset != "na"):
+                of.write(f"{indent2} reset = {hex(reset)};\n")
+            of.write(f"{indent2} {get_access_sw(f.access,f.modifiedWriteValue)};\n")
             #of.write(f"{indent2} {get_access_hw(f.access)};\n")
             of.write(f"{indent} }} {get_item_name(f.name, is_rdlp)}[{msb}:{lsb}];\n")
             num_fld_op = num_fld_op+1
@@ -138,7 +216,8 @@ def write_memory_maps(of, memory_maps, offset=0, name=None):
             mname=name.lower()
         else:
             mname = m.name.lower()
-        mname = args.pfx_addr_map + "_" + mname
+        if (args.pfx_addr_map):
+            mname = args.pfx_addr_map + "_" + mname
         of.write(f"addrmap {mname} {{\n")
         multiblock = len(m.addressBlock) > 1
         for block in m.addressBlock:
@@ -150,10 +229,8 @@ def write_memory_maps(of, memory_maps, offset=0, name=None):
             for reg in sorted(block.register, key=lambda a: a.addressOffset):
                 of.write(f"{indent2} reg {{\n")
                 of.write(f"{indent3} regwidth = {reg.size};\n")
-                if (reg.reset):
-                    of.write(f"{indent3} default reset = {hex(get_reset(reg,reg))};\n")
                 if (reg.access):
-                    of.write(f"{indent3} default {get_access_sw(reg.access,reg)};\n")
+                    of.write(f"{indent3} default {get_access_sw(reg.access,'',reg)};\n")
                     #of.write(f"{indent3} default {get_access_hw(reg.access,reg)};\n")
                 if reg.field:
                     num_fld_op = write_reg_fields(reg, indent3, add_pre, args.ignore_rsvd_fld)
